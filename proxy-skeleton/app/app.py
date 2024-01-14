@@ -17,7 +17,6 @@ import coloredlogs
 from proxy import proxy
 from redis import Redis
 
-from . import suicide
 from .background import validate_proxies
 
 coloredlogs.install(level='INFO')

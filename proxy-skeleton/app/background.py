@@ -1,12 +1,15 @@
 import concurrent
 import logging
+import os
 import random
+import signal
 import time
 
 import requests
 from redis import Redis
 
 from .config import PROXY_POOL, SMARTPROXY_POOL, IP_CHECKER, MAX_PROXY_CHECKERS
+from .pid import zombie_slayer
 from .redis_cycle import add_backend_cycler
 from .smartproxy import transform_smartproxy
 
@@ -21,6 +24,18 @@ def validate_proxies():
     logger.info('Doing inital backend check, please wait...')
     started = False
     while True:
+        # Health checks. If one of these fails, the process is killed to be restarted by systemd.
+        if int(redis.get('balancer_online')):
+            zombie_slayer()
+            try:
+                response = requests.get('http://localhost:9000', headers={'User-Agent': 'HEALTHCHECK'}, timeout=10)
+                if response.status_code != 404:
+                    logger.critical(f"Frontend HTTP check failed with status code: {response.status_code}")
+                    os.kill(os.getpid(), signal.SIGKILL)
+            except requests.exceptions.RequestException as e:
+                logger.critical(f"Frontend HTTP check failed with exception: {e}")
+                os.kill(os.getpid(), signal.SIGKILL)
+
         our_online_backends = {}
         smartproxy_online_backends = {}
         ip_addresses = set()
@@ -39,10 +54,6 @@ def validate_proxies():
                 if r.status_code != 200:
                     logger.debug(f'PROXY TEST failed - {pxy} - got code {r.status_code}')
                     return
-
-                # if r_test.status_code != 200:
-                #     logger.debug(f'PROXY TEST failed - {pxy} - test download got code {r_test.status_code}')
-                #     return
 
                 ip = r.text
                 if ip not in ip_addresses:
@@ -76,7 +87,3 @@ def validate_proxies():
 
         redis.set('balancer_online', 1)
         time.sleep(10)
-
-        # if int(redis.get('suicide_online')) == 1 and not suicide.SUICIDE_PACT.pact.is_alive():
-        #     logger.critical('Suicide thread not running!')
-        #     os.kill(os.getpid(), signal.SIGTERM)

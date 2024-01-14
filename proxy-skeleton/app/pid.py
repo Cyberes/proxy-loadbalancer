@@ -27,6 +27,9 @@ def zombie_slayer():
             zombies.append(child_pid)
 
     if zombies:
-        print(f"Zombie processes detected: {zombies}")
-        print("Killing parent process to reap zombies...")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.setLevel(logging.INFO)
+        logging.critical(f"Zombie processes detected: {zombies}")
+        logging.critical("Killing parent process to reap zombies...")
         os.kill(pid, signal.SIGKILL)
