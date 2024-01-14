@@ -1,0 +1,1 @@
+A simple server to give the client his IP address. Used for the proxy load balancer.

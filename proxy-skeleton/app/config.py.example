@@ -1,0 +1,16 @@
+IP_CHECKER = 'http://[your IP or domain name]:5000'
+
+MAX_PROXY_CHECKERS = 50
+
+SMARTPROXY_USER = 'example'
+SMARTPROXY_PASS = 'password'
+
+PROXY_POOL = [
+    "127.0.0.1:3128",
+    "[other server]:3128",
+]
+
+SMARTPROXY_POOL = [
+    # "dc.smartproxy.com:10001",
+    # ...
+]

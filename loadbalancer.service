@@ -1,0 +1,13 @@
+[Unit]
+Description=Proxy Load Distributor
+After=network.target
+
+[Service]
+User=loadbalancer
+Group=loadbalancer
+WorkingDirectory=/srv/loadbalancer/huggingface-proxy/distributor-server/proxy-skeleton
+ExecStart=/srv/loadbalancer/huggingface-proxy/distributor-server/proxy-skeleton/venv/bin/python -m app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

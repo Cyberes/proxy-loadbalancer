@@ -1,0 +1,13 @@
+[Unit]
+Description=canihazip
+After=network.target
+
+[Service]
+User=flask
+Group=nogroup
+WorkingDirectory=/srv/canihazip
+ExecStart=/srv/canihazip/venv/bin/gunicorn --workers 3 --bind 0.0.0.0:5000 server:app --timeout 120
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
