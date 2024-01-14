@@ -6,7 +6,7 @@ After=network.target
 User=loadbalancer
 Group=loadbalancer
 WorkingDirectory=/srv/loadbalancer/proxy-loadbalancer/proxy-skeleton
-ExecStart=/srv/loadbalancer/proxy-loadbalancer/proxy-skeleton/venv/bin/python -m app
+ExecStart=/srv/loadbalancer/proxy-loadbalancer/venv/bin/python -m app
 Restart=always
 
 [Install]

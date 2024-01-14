@@ -1,7 +1,6 @@
 proxy.py @ git+https://github.com/abhinavsingh/proxy.py.git@develop
 redis
 requests
-async_timeout
 coloredlogs
 psutil
 flask
