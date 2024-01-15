@@ -15,7 +15,8 @@ SMARTPROXY_PASS = 'password'
 
 # Some domains just don't work through SmartProxy.
 BYPASS_SMARTPROXY_DOMAINS = [
-    'files.catbox.moe'
+    'files.catbox.moe',
+    'twitter.com'
 ]
 
 # The domains that SmartProxy gives you to connect to their service. Leave the array empty to disable this feature.
