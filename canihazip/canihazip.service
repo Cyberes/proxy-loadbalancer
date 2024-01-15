@@ -3,6 +3,7 @@ Description=canihazip
 After=network.target
 
 [Service]
+SyslogIdentifier=canihazip
 User=flask
 Group=nogroup
 WorkingDirectory=/srv/canihazip

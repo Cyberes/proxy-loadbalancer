@@ -3,6 +3,7 @@ Description=Proxy Load Distributor
 After=network.target
 
 [Service]
+SyslogIdentifier=proxy-loadbalancer
 User=loadbalancer
 Group=loadbalancer
 WorkingDirectory=/srv/loadbalancer/proxy-loadbalancer/proxy-skeleton
