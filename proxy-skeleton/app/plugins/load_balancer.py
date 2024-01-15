@@ -12,7 +12,7 @@ from proxy.http.parser import HttpParser
 from proxy.http.proxy import HttpProxyBasePlugin
 from redis import Redis
 
-from ..config import SMARTPROXY_USER, SMARTPROXY_PASS, SMARTPROXY_POOL
+from ..config import SMARTPROXY_USER, SMARTPROXY_PASS, SMARTPROXY_POOL, BYPASS_SMARTPROXY_DOMAINS
 from ..redis_cycle import redis_cycle
 
 logger = logging.getLogger(__name__)
@@ -36,9 +36,8 @@ class ProxyLoadBalancer(TcpUpstreamConnectionHandler, HttpProxyBasePlugin):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.redis = Redis(host='localhost', port=6379, decode_responses=True)
-        self._endpoint: Url = self._select_proxy()
-        # Cached attributes to be used during access log override
-        self._metadata: List[Any] = [
+        self._endpoint: Url = Url()
+        self._metadata: List[Any] = [  # Cached attributes to be used during access log override
             None, None, None, None,
         ]
 
@@ -64,16 +63,22 @@ class ProxyLoadBalancer(TcpUpstreamConnectionHandler, HttpProxyBasePlugin):
                 return request
         except ValueError:
             pass
+
+        # Select the proxy to use.
+        self._endpoint = self._select_proxy(request.host.decode())
+
         # If chosen proxy is the local instance, bypass upstream proxies
         assert self._endpoint.port and self._endpoint.hostname
         if self._endpoint.port == self.flags.port and \
                 self._endpoint.hostname in LOCAL_INTERFACE_HOSTNAMES + ANY_INTERFACE_HOSTNAMES:
             return request
+
         # Establish connection to chosen upstream proxy
         endpoint_tuple = (text_(self._endpoint.hostname), self._endpoint.port)
         logger.debug('Using endpoint: {0}:{1}'.format(*endpoint_tuple))
         self.initialize_upstream(*endpoint_tuple)
         assert self.upstream
+
         try:
             self.upstream.connect()
         except TimeoutError:
@@ -85,7 +90,7 @@ class ProxyLoadBalancer(TcpUpstreamConnectionHandler, HttpProxyBasePlugin):
         except ConnectionRefusedError:
             # TODO(abhinavsingh): Try another choice, when all (or max configured) choices have
             # exhausted, retry for configured number of times before giving up.
-            #
+
             # Failing upstream proxies, must be removed from the pool temporarily.
             # A periodic health check must put them back in the pool.  This can be achieved
             # using a data structure without having to spawn separate thread/process for health
@@ -196,16 +201,21 @@ class ProxyLoadBalancer(TcpUpstreamConnectionHandler, HttpProxyBasePlugin):
                 log_attrs[attr] = value.decode('utf-8')
         logger.info(access_log_format.format_map(log_attrs))
 
-    def _select_proxy(self) -> Url:
+    def _select_proxy(self, request_host: str = None) -> Url:
         online = int(self.redis.get('balancer_online'))
         if not online:
             logger.error('Server is not online!')
             return Url()
 
-        valid_backends = redis_cycle('proxy_backends')
+        if request_host in BYPASS_SMARTPROXY_DOMAINS:
+            valid_backends = redis_cycle('our_proxy_backends')
+        else:
+            valid_backends = redis_cycle('all_proxy_backends')
+
         if not len(valid_backends):
             logger.error('No valid backends!')
             return Url()
+
         chosen_backend = valid_backends[0]
         is_smartproxy = chosen_backend in SMARTPROXY_POOL
 
@@ -227,7 +237,7 @@ class ProxyLoadBalancer(TcpUpstreamConnectionHandler, HttpProxyBasePlugin):
         # start_time = time.time()
         # while not len(backends) and time.time() - start_time < 30:  # wait a max of 30 seconds.
         #     time.sleep(1)  # wait for 1 second before checking again
-        #     backends = redis_cycle('proxy_backends')
+        #     backends = redis_cycle('all_proxy_backends')
         # if not len(backends):
         #     logger.error('No available proxy after 30 seconds.')
         #     return Url()

@@ -72,12 +72,13 @@ def validate_proxies():
 
         our_valid_proxies = list(our_online_backends.keys())
         smartproxy_valid_proxies = list(smartproxy_online_backends.keys())
-        valid_proxies = list(set(our_valid_proxies) | set(smartproxy_valid_proxies))
+        all_valid_proxies = list(set(our_valid_proxies) | set(smartproxy_valid_proxies))
         if not started:
-            random.shuffle(valid_proxies)
-            random.shuffle(valid_proxies)
+            random.shuffle(all_valid_proxies)
+            random.shuffle(our_valid_proxies)
             started = True
-        add_backend_cycler('proxy_backends', valid_proxies)
+        add_backend_cycler('all_proxy_backends', all_valid_proxies)
+        add_backend_cycler('our_proxy_backends', our_valid_proxies)
 
         if logger.level == logging.DEBUG:
             logger.debug(f'Our Backends Online ({len(our_valid_proxies)}): {our_online_backends}')

@@ -13,6 +13,11 @@ PROXY_POOL = [
 SMARTPROXY_USER = 'example'
 SMARTPROXY_PASS = 'password'
 
+# Some domains just don't work through SmartProxy.
+BYPASS_SMARTPROXY_DOMAINS = [
+    'files.catbox.moe'
+]
+
 # The domains that SmartProxy gives you to connect to their service. Leave the array empty to disable this feature.
 SMARTPROXY_POOL = [
     # "dc.smartproxy.com:10001",
