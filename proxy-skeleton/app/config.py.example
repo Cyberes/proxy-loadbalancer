@@ -13,9 +13,9 @@ PROXY_POOL = [
 SMARTPROXY_USER = 'example'
 SMARTPROXY_PASS = 'password'
 
-# Some domains just don't work through SmartProxy.
+# Some domains just don't work through SmartProxy. Domains in this list are routed though
+# your proxies, not SmartProxy.
 BYPASS_SMARTPROXY_DOMAINS = [
-    'files.catbox.moe',
     'twitter.com'
 ]
 
