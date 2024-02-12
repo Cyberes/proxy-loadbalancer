@@ -48,10 +48,11 @@ def validate_proxies():
                     r = requests.get(IP_CHECKER, proxies={'http': transform_smartproxy(pxy), 'https': transform_smartproxy(pxy)}, timeout=15)
 
                     # TODO: remove when fixed
-                    r2 = requests.get(SMARTPROXY_BV3HI_FIX, proxies={'http': transform_smartproxy(pxy), 'https': transform_smartproxy(pxy)}, timeout=15)
-                    if r2.status_code != 200:
-                        logger.debug(f'PROXY BV3HI TEST failed - {pxy} - got code {r2.status_code}')
-                        return
+                    for d in SMARTPROXY_BV3HI_FIX:
+                        r2 = requests.get(d, proxies={'http': transform_smartproxy(pxy), 'https': transform_smartproxy(pxy)}, timeout=15)
+                        if r2.status_code != 200:
+                            logger.debug(f'PROXY BV3HI TEST failed - {pxy} - got code {r2.status_code}')
+                            return
                 else:
                     r = requests.get(IP_CHECKER, proxies={'http': pxy, 'https': pxy}, timeout=15)
 

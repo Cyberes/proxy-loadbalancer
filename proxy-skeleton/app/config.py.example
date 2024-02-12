@@ -15,7 +15,9 @@ SMARTPROXY_PASS = 'password'
 
 # Fix the 503 error on some SmartProxy hosts.
 # TODO: remove when fixed.
-SMARTPROXY_BV3HI_FIX = 'https://files.catbox.moe/c8p1q6.png'
+SMARTPROXY_BV3HI_FIX = [
+    'https://files.catbox.moe/c8p1q6.png'
+]
 
 # Some domains just don't work through SmartProxy. Domains in this list are routed though
 # your proxies, not SmartProxy.
@@ -23,7 +25,8 @@ BYPASS_SMARTPROXY_DOMAINS = [
     'twitter.com'
 ]
 
-# The domains that SmartProxy gives you to connect to their service. Leave the array empty to disable this feature.
+# The domains that SmartProxy gives you to connect to their service.
+# Leave the array empty to disable this feature.
 SMARTPROXY_POOL = [
     # "dc.smartproxy.com:10001",
     # ...
