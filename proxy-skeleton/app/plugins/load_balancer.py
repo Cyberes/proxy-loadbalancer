@@ -140,6 +140,7 @@ class ProxyLoadBalancer(TcpUpstreamConnectionHandler, HttpProxyBasePlugin):
         self._metadata = [
             host, port, path, request.method,
         ]
+
         # Queue original request optionally with auth headers to upstream proxy
         if self._endpoint.has_credentials:
             assert self._endpoint.username and self._endpoint.password

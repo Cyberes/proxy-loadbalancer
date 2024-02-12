@@ -8,7 +8,7 @@ import time
 import requests
 from redis import Redis
 
-from .config import PROXY_POOL, SMARTPROXY_POOL, IP_CHECKER, MAX_PROXY_CHECKERS
+from .config import PROXY_POOL, SMARTPROXY_POOL, IP_CHECKER, MAX_PROXY_CHECKERS, SMARTPROXY_BV3HI_FIX
 from .pid import zombie_slayer
 from .redis_cycle import add_backend_cycler
 from .smartproxy import transform_smartproxy
@@ -46,10 +46,14 @@ def validate_proxies():
                 if pxy in SMARTPROXY_POOL:
                     smartproxy = True
                     r = requests.get(IP_CHECKER, proxies={'http': transform_smartproxy(pxy), 'https': transform_smartproxy(pxy)}, timeout=15)
-                    # r_test = requests.get(TEST_LARGE_FILE, proxies={'http': transform_smartproxy(pxy), 'https': transform_smartproxy(pxy)}, timeout=15)
+
+                    # TODO: remove when fixed
+                    r2 = requests.get(SMARTPROXY_BV3HI_FIX, proxies={'http': transform_smartproxy(pxy), 'https': transform_smartproxy(pxy)}, timeout=15)
+                    if r2.status_code != 200:
+                        logger.debug(f'PROXY BV3HI TEST failed - {pxy} - got code {r2.status_code}')
+                        return
                 else:
                     r = requests.get(IP_CHECKER, proxies={'http': pxy, 'https': pxy}, timeout=15)
-                    # r_test = requests.get(TEST_LARGE_FILE, proxies={'http': pxy, 'https': pxy}, timeout=15)
 
                 if r.status_code != 200:
                     logger.debug(f'PROXY TEST failed - {pxy} - got code {r.status_code}')
