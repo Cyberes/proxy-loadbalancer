@@ -13,6 +13,19 @@ from .pid import zombie_slayer
 from .redis_cycle import add_backend_cycler
 from .smartproxy import transform_smartproxy
 
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'cross-site',
+    'Pragma': 'no-cache',
+    'Cache-Control': 'no-cache',
+}
+
 
 def validate_proxies():
     """
@@ -45,19 +58,19 @@ def validate_proxies():
                 smartproxy = False
                 if pxy in SMARTPROXY_POOL:
                     smartproxy = True
-                    r = requests.get(IP_CHECKER, proxies={'http': transform_smartproxy(pxy), 'https': transform_smartproxy(pxy)}, timeout=15)
+                    r = requests.get(IP_CHECKER, proxies={'http': transform_smartproxy(pxy), 'https': transform_smartproxy(pxy)}, timeout=15, headers=headers)
 
                     # TODO: remove when fixed
                     for d in SMARTPROXY_BV3HI_FIX:
-                        r2 = requests.get(d, proxies={'http': transform_smartproxy(pxy), 'https': transform_smartproxy(pxy)}, timeout=15)
+                        r2 = requests.get(d, proxies={'http': transform_smartproxy(pxy), 'https': transform_smartproxy(pxy)}, timeout=15, headers=headers)
                         if r2.status_code != 200:
-                            logger.debug(f'PROXY BV3HI TEST failed - {pxy} - got code {r2.status_code}')
+                            logger.info(f'PROXY BV3HI TEST failed - {pxy} - got code {r2.status_code}')
                             return
                 else:
-                    r = requests.get(IP_CHECKER, proxies={'http': pxy, 'https': pxy}, timeout=15)
+                    r = requests.get(IP_CHECKER, proxies={'http': pxy, 'https': pxy}, timeout=15, headers=headers)
 
                 if r.status_code != 200:
-                    logger.debug(f'PROXY TEST failed - {pxy} - got code {r.status_code}')
+                    logger.info(f'PROXY TEST failed - {pxy} - got code {r.status_code}')
                     return
 
                 ip = r.text
@@ -67,9 +80,9 @@ def validate_proxies():
                     proxy_dict[pxy] = ip
                 else:
                     s = ' Smartproxy ' if smartproxy else ' '
-                    logger.debug(f'Duplicate{s}IP: {ip}')
+                    logger.info(f'Duplicate{s}IP: {ip}')
             except Exception as e:
-                logger.debug(f'PROXY TEST failed - {pxy} - {e}')  # ': {e.__class__.__name__}')
+                logger.info(f'PROXY TEST failed - {pxy} - {e}')  # ': {e.__class__.__name__}')
                 # traceback.print_exc()
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_PROXY_CHECKERS) as executor:
