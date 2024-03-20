@@ -65,7 +65,7 @@ class ProxyLoadBalancer(TcpUpstreamConnectionHandler, HttpProxyBasePlugin):
             pass
 
         # Select the proxy to use.
-        self._endpoint = self._select_proxy(request.host.decode())
+        self._endpoint = self._select_proxy(request.host.decode(), request.has_header(b'smartproxy-bypass'))
 
         # If chosen proxy is the local instance, bypass upstream proxies
         assert self._endpoint.port and self._endpoint.hostname
@@ -202,13 +202,13 @@ class ProxyLoadBalancer(TcpUpstreamConnectionHandler, HttpProxyBasePlugin):
                 log_attrs[attr] = value.decode('utf-8')
         logger.info(access_log_format.format_map(log_attrs))
 
-    def _select_proxy(self, request_host: str = None) -> Url:
+    def _select_proxy(self, request_host: str = None, smartproxy_bypass: bool = True) -> Url:
         online = int(self.redis.get('balancer_online'))
         if not online:
             logger.error('Server is not online!')
             return Url()
 
-        if request_host in BYPASS_SMARTPROXY_DOMAINS:
+        if request_host in BYPASS_SMARTPROXY_DOMAINS or smartproxy_bypass:
             valid_backends = redis_cycle('our_proxy_backends')
         else:
             valid_backends = redis_cycle('all_proxy_backends')
