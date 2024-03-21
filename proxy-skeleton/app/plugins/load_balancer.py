@@ -57,15 +57,18 @@ class ProxyLoadBalancer(TcpUpstreamConnectionHandler, HttpProxyBasePlugin):
         See :class:`~proxy.core.connection.pool.UpstreamConnectionPool` which is a work
         in progress for SSL cache handling.
         """
+        # Select the proxy to use.
+        self._endpoint = self._select_proxy(request.host.decode(), request.has_header(b'smartproxy-bypass'), request.has_header(b'smartproxy-disable-bv3hi'))
+
+        request.del_header(b'smartproxy-bypass')
+        request.del_header(b'smartproxy-disable-bv3hi')
+
         # We don't want to send private IP requests to remote proxies
         try:
             if ipaddress.ip_address(text_(request.host)).is_private:
                 return request
         except ValueError:
             pass
-
-        # Select the proxy to use.
-        self._endpoint = self._select_proxy(request.host.decode(), request.has_header(b'smartproxy-bypass'))
 
         # If chosen proxy is the local instance, bypass upstream proxies
         assert self._endpoint.port and self._endpoint.hostname
@@ -153,7 +156,13 @@ class ProxyLoadBalancer(TcpUpstreamConnectionHandler, HttpProxyBasePlugin):
                     self._endpoint.password,
                 ),
             )
-        self.upstream.queue(memoryview(request.build(for_proxy=True)))
+        self.upstream.queue(memoryview(request.build(
+            for_proxy=True,
+            disable_headers=[
+                b'smartproxy-bypass',
+                b'smartproxy-disable-bv3hi'
+            ]
+        )))
         return request
 
     def handle_client_data(self, raw: memoryview) -> Optional[memoryview]:
@@ -202,16 +211,25 @@ class ProxyLoadBalancer(TcpUpstreamConnectionHandler, HttpProxyBasePlugin):
                 log_attrs[attr] = value.decode('utf-8')
         logger.info(access_log_format.format_map(log_attrs))
 
-    def _select_proxy(self, request_host: str = None, smartproxy_bypass: bool = True) -> Url:
+    def _select_proxy(self, request_host: str = None, smartproxy_bypass: bool = False, disable_smartproxy_bv3hi: bool = False) -> Url:
         online = int(self.redis.get('balancer_online'))
         if not online:
             logger.error('Server is not online!')
             return Url()
 
-        if request_host in BYPASS_SMARTPROXY_DOMAINS or smartproxy_bypass:
-            valid_backends = redis_cycle('our_proxy_backends')
+        if disable_smartproxy_bv3hi and smartproxy_bypass:
+            # Prevent undefined behavior.
+            logger.error('Duplicate options headers detected. Rejecting request.')
+            return Url()
+
+        if not disable_smartproxy_bv3hi:
+            # The normal route.
+            if request_host in BYPASS_SMARTPROXY_DOMAINS or smartproxy_bypass:
+                valid_backends = redis_cycle('our_valid_proxies')
+            else:
+                valid_backends = redis_cycle('all_valid_proxies')
         else:
-            valid_backends = redis_cycle('all_proxy_backends')
+            valid_backends = redis_cycle('all_valid_proxies_with_broken_smartproxy')
 
         if not len(valid_backends):
             logger.error('No valid backends!')
@@ -238,7 +256,7 @@ class ProxyLoadBalancer(TcpUpstreamConnectionHandler, HttpProxyBasePlugin):
         # start_time = time.time()
         # while not len(backends) and time.time() - start_time < 30:  # wait a max of 30 seconds.
         #     time.sleep(1)  # wait for 1 second before checking again
-        #     backends = redis_cycle('all_proxy_backends')
+        #     backends = redis_cycle('all_valid_proxies')
         # if not len(backends):
         #     logger.error('No available proxy after 30 seconds.')
         #     return Url()

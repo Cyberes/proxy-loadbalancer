@@ -46,10 +46,13 @@ def entry_point() -> None:
             # NOTE: Pass plugins via *args if you define custom flags.
             # Currently plugins passed via **kwargs are not discovered for
             # custom flags by proxy.py
-            #
             # See https://github.com/abhinavsingh/proxy.py/issues/871
             plugins=[
                 'app.plugins.ProxyLoadBalancer',
             ],
+            disable_headers=[
+                b'smartproxy-bypass',
+                b'smartproxy-disable-bv3hi'
+            ]
     ) as _:
         proxy.sleep_loop()

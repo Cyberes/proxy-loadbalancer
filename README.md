@@ -17,3 +17,10 @@ servers without worrying about implementing anything special clientside.
 
 To start the load balancer server, navigate to `./proxy-skeleton` and run `python3 -m app`. The systemd service
 `loadbalancer.service` is provided as a service example.
+
+## Special Headers
+
+The load balancer accepts special headers to control its behavior.
+
+- `Smartproxy-Bypass`: don't use any SmartProxy endpoints.
+- `Smartproxy-Disable-BV3HI`: don't filter SmartProxy endpoints by the 503 connect error.
