@@ -124,4 +124,4 @@ def validate_proxies():
             logger.info(f'Our Backends Online: {len(our_valid_proxies)}, Smartproxy Backends Online: {len(smartproxy_valid_proxies)}, Smartproxy Broken Backends: {len(smartproxy_broken_proxies)}, Total Online: {len(our_valid_proxies) + len(smartproxy_valid_proxies)}')
 
         redis.set('balancer_online', 1)
-        time.sleep(10)
+        time.sleep(60)

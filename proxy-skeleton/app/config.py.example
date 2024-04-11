@@ -16,7 +16,7 @@ SMARTPROXY_PASS = 'password'
 # Fix the 503 error on some SmartProxy hosts.
 # TODO: remove when fixed.
 SMARTPROXY_BV3HI_FIX = [
-    'https://files.catbox.moe/c8p1q6.png'
+    'https://files.catbox.moe/1hvrlj.png'
 ]
 
 # Some domains just don't work through SmartProxy. Domains in this list are routed though

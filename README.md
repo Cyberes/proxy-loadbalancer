@@ -11,7 +11,7 @@ servers without worrying about implementing anything special clientside.
 
 1. `pip install -r requirements.txt`
 2. Copy `proxy-skeleton/app/config.py.example` to `proxy-skeleton/app/config.py` and fill in your config details.
-3. Deploy the `./canihazip` directory and start the server.
+3. Deploy the `canihazip` https://git.evulid.cc/cyberes/canihazip and start it.
 
 ## Use
 
