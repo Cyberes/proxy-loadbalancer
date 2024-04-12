@@ -2,6 +2,8 @@
 
 _A round-robin load balancer for HTTP proxies._
 
+does not support downstream https servers.
+
 This is a simple load balancer using [proxy.py](https://github.com/abhinavsingh/proxy.py) that will route requests to a
 cluster of proxy backends in a round-robin fashion. This makes it easy to connect your clients to a large number of
 proxy
