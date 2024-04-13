@@ -83,12 +83,15 @@ func main() {
 	}
 
 	proxyCluster := proxy.NewForwardProxyCluster()
-	go proxyCluster.ValidateProxiesThread()
-	proxyCluster.BalancerOnline.Wait()
 	go func() {
 		log.Fatal(http.ListenAndServe(":"+configData.HTTPPort, proxyCluster))
 	}()
-	log.Infof("-> Server started on 0.0.0.0:%s and accepting requests <-", configData.HTTPPort)
+	log.Infof("-> Server started on 0.0.0.0:%s <-", configData.HTTPPort)
+
+	go proxyCluster.ValidateProxiesThread()
+	proxyCluster.BalancerOnline.Wait()
+	log.Infoln("-> Proxy server accepting requests <-")
+
 	select {}
 }
 

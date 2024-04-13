@@ -15,9 +15,13 @@ HTTPS proxy servers are not supported.
 3.  Edit the config.
 4.  Start the loadbalancer with `./proxy-loadbalancer --config [path to your config.yml]`
 
+## Use
+
 You can run your own "public IP delivery server" `canihazip` <https://git.evulid.cc/cyberes/canihazip> or use the default `api.ipify.org`
 
 An example systemd service `loadbalancer.service` is provided.
+
+The server displays stats and info at `/json`
 
 ## Special Headers
 
