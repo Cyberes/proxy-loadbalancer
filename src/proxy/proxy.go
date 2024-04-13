@@ -54,7 +54,7 @@ func (p *ForwardProxyCluster) cycleProxy(validProxies []string, currentProxy *in
 func (p *ForwardProxyCluster) getProxyFromAll() string {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	validProxies := removeDuplicates(append(p.ourOnlineProxies, p.thirdpartyOnlineProxies...))
+	validProxies := append(p.ourOnlineProxies, p.thirdpartyOnlineProxies...)
 	return p.cycleProxy(validProxies, &p.currentProxyAll)
 }
 
@@ -68,7 +68,7 @@ func (p *ForwardProxyCluster) getProxyFromOurs() string {
 func (p *ForwardProxyCluster) getProxyFromAllWithBroken() string {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	validProxies := removeDuplicates(slices.Concat(p.ourOnlineProxies, p.thirdpartyBrokenProxies, p.thirdpartyOnlineProxies))
+	validProxies := slices.Concat(p.ourOnlineProxies, p.thirdpartyBrokenProxies, p.thirdpartyOnlineProxies)
 	return p.cycleProxy(validProxies, &p.currentProxyAllWithBroken)
 
 }

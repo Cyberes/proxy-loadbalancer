@@ -72,10 +72,10 @@ func (p *ForwardProxyCluster) ValidateProxiesThread() {
 		wg.Wait()
 
 		p.mu.Lock()
-		p.ourOnlineProxies = newOurOnlineProxies
-		p.thirdpartyOnlineProxies = newThirdpartyOnlineProxies
-		p.thirdpartyBrokenProxies = newThirdpartyBrokenProxies
-		p.ipAddresses = newIpAddresses
+		p.ourOnlineProxies = removeDuplicates(newOurOnlineProxies)
+		p.thirdpartyOnlineProxies = removeDuplicates(newThirdpartyOnlineProxies)
+		p.thirdpartyBrokenProxies = removeDuplicates(newThirdpartyBrokenProxies)
+		p.ipAddresses = removeDuplicates(newIpAddresses)
 		p.mu.Unlock()
 
 		if !started {
