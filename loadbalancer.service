@@ -6,7 +6,7 @@ After=network.target
 SyslogIdentifier=proxy-loadbalancer
 User=loadbalancer
 Group=loadbalancer
-ExecStart=/srv/loadbalancer/proxy-loadbalancer --config /etc/proxy-loadbalancer/config.yml
+ExecStart=/srv/loadbalancer/proxy-loadbalancer -d --config /etc/proxy-loadbalancer/config.yml
 Restart=always
 
 [Install]

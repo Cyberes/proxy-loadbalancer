@@ -79,7 +79,7 @@ func (p *ForwardProxyCluster) proxyHttpConnect(w http.ResponseWriter, req *http.
 		log.Debugf(`%s -> %s -- HTTP -- Rejecting request: "%s"`, remoteAddr, proxyHost, err)
 		return
 	}
-	defer log.Debugf(`%s -> %s -> %s -- HTTP`, remoteAddr, proxyHost, req.Host)
+	defer log.Infof(`%s -> %s -> %s -- HTTP`, remoteAddr, proxyHost, req.Host)
 
 	parsedProxyUrl.Scheme = "http"
 	if proxyUser != "" && proxyPass != "" {
@@ -124,7 +124,7 @@ func (p *ForwardProxyCluster) proxyHttpsConnect(w http.ResponseWriter, req *http
 		log.Debugf(`%s -> %s -- CONNECT -- Rejecting request: "%s"`, remoteAddr, proxyHost, err)
 		return
 	}
-	defer log.Debugf(`%s -> %s -> %s -- CONNECT`, remoteAddr, proxyHost, targetHost)
+	defer log.Infof(`%s -> %s -> %s -- CONNECT`, remoteAddr, proxyHost, targetHost)
 
 	// Connect to the downstream proxy server instead of the target host
 	proxyConn, err := net.DialTimeout("tcp", proxyHost, config.GetConfig().ProxyConnectTimeout)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/url"
 	"time"
@@ -24,6 +25,8 @@ func (p *ForwardProxyCluster) ServeHTTP(w http.ResponseWriter, req *http.Request
 		// HTTP
 		if req.URL.Scheme == "" {
 			// When the client connects using the server as a web server.
+			remoteAddr, _, _ := net.SplitHostPort(req.RemoteAddr)
+			defer log.Infof(`%s -- %s`, remoteAddr, req.URL.Path)
 			if req.URL.Path == "/" {
 				rand.New(rand.NewSource(time.Now().Unix()))
 				fmt.Fprint(w, "proxy-loadbalancer <https://git.evulid.cc/cyberes/proxy-loadbalancer>\nSee /json for status info.\n\n\n\n"+retardation[rand.Intn(len(retardation))])
