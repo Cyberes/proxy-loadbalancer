@@ -19,8 +19,8 @@ var (
 	HeaderThirdpartyBypass        = "Thirdparty-Bypass"
 )
 
-func logProxyRequest(remoteAddr string, proxyHost string, targetHost string, returnCode *int, proxyConnectMode string, elapsedMs int64) {
-	log.Infof(`%s -> %s -> %s -> %d -- %s -- %d ms`, remoteAddr, proxyHost, targetHost, *returnCode, proxyConnectMode, elapsedMs)
+func logProxyRequest(remoteAddr string, proxyHost string, targetHost string, returnCode *int, proxyConnectMode string, requestStartTime time.Time) {
+	log.Infof(`%s -> %s -> %s -> %d -- %s -- %d ms`, remoteAddr, proxyHost, targetHost, *returnCode, proxyConnectMode, time.Since(requestStartTime).Milliseconds())
 }
 
 func (p *ForwardProxyCluster) validateRequestAndGetProxy(w http.ResponseWriter, req *http.Request) (string, string, string, string, *url.URL, error) {
@@ -82,13 +82,13 @@ func (p *ForwardProxyCluster) proxyHttpConnect(w http.ResponseWriter, req *http.
 	_, proxyUser, proxyPass, proxyHost, parsedProxyUrl, err := p.validateRequestAndGetProxy(w, req)
 	if err != nil {
 		// Error has already been handled, just log and return.
-		log.Debugf(`%s -> %s -- HTTP -- Rejecting request: "%s"`, remoteAddr, proxyHost, err)
+		log.Debugf(`%s -> %s -- HTTP -- Rejecting request: %s`, remoteAddr, proxyHost, err)
 		return
 	}
 	var returnCode *int
 	returnCode = new(int)
 	*returnCode = -1
-	defer logProxyRequest(remoteAddr, proxyHost, req.Host, returnCode, "HTTP", time.Since(requestStartTime).Milliseconds())
+	defer logProxyRequest(remoteAddr, proxyHost, req.Host, returnCode, "HTTP", requestStartTime)
 
 	parsedProxyUrl.Scheme = "http"
 	if proxyUser != "" && proxyPass != "" {
@@ -103,7 +103,7 @@ func (p *ForwardProxyCluster) proxyHttpConnect(w http.ResponseWriter, req *http.
 
 	proxyReq, err := http.NewRequest(req.Method, req.URL.String(), req.Body)
 	if err != nil {
-		log.Errorf(`Failed to make %s request to "%s": "%s"`, req.Method, req.URL.String(), err)
+		log.Errorf(`Failed to make %s request to "%s": %s`, req.Method, req.URL.String(), err)
 		http.Error(w, "failed to make request to downstream", http.StatusInternalServerError)
 		return
 	}
@@ -113,7 +113,7 @@ func (p *ForwardProxyCluster) proxyHttpConnect(w http.ResponseWriter, req *http.
 
 	resp, err := client.Do(proxyReq)
 	if err != nil {
-		log.Errorf(`Failed to execute %s request to "%s": "%s"`, req.Method, req.URL.String(), err)
+		log.Errorf(`Failed to execute %s request to "%s": %s`, req.Method, req.URL.String(), err)
 		http.Error(w, "failed to execute request to downstream", http.StatusServiceUnavailable)
 		return
 	}
@@ -132,13 +132,13 @@ func (p *ForwardProxyCluster) proxyHttpsConnect(w http.ResponseWriter, req *http
 	_, proxyUser, proxyPass, proxyHost, _, err := p.validateRequestAndGetProxy(w, req)
 	if err != nil {
 		// Error has already been handled, just log and return.
-		log.Debugf(`%s -> %s -- CONNECT -- Rejecting request: "%s"`, remoteAddr, proxyHost, err)
+		log.Debugf(`%s -> %s -- CONNECT -- Rejecting request: %s`, remoteAddr, proxyHost, err)
 		return
 	}
 	var returnCode *int
 	returnCode = new(int)
 	*returnCode = -1
-	defer logProxyRequest(remoteAddr, proxyHost, targetHost, returnCode, "CONNECT", time.Since(requestStartTime).Milliseconds())
+	defer logProxyRequest(remoteAddr, proxyHost, targetHost, returnCode, "CONNECT", requestStartTime)
 
 	// Start a connection to the downstream proxy server.
 	proxyConn, err := net.DialTimeout("tcp", proxyHost, config.GetConfig().ProxyConnectTimeout)
