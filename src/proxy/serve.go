@@ -34,14 +34,19 @@ func (p *ForwardProxyCluster) ServeHTTP(w http.ResponseWriter, req *http.Request
 			} else if req.URL.Path == "/json" {
 				p.mu.RLock()
 				response := map[string]interface{}{
-					"uptime": int(math.Round(time.Since(startTime).Seconds())),
-					"online": p.BalancerOnline.GetCount() == 0,
+					"uptime":            int(math.Round(time.Since(startTime).Seconds())),
+					"online":            p.BalancerOnline && p.BalancerReady.GetCount() == 0,
+					"refreshInProgress": p.refreshInProgress,
 					"proxies": map[string]interface{}{
 						"totalOnline": len(p.ourOnlineProxies) + len(p.thirdpartyOnlineProxies),
-						"ours":        removeCredentials(p.ourOnlineProxies),
+						"ours": map[string]interface{}{
+							"online":  removeCredentials(p.ourOnlineProxies),
+							"offline": removeCredentials(p.ourOfflineProxies),
+						},
 						"thirdParty": map[string]interface{}{
-							"online": removeCredentials(p.thirdpartyOnlineProxies),
-							"broken": removeCredentials(p.thirdpartyBrokenProxies),
+							"online":  removeCredentials(p.thirdpartyOnlineProxies),
+							"broken":  removeCredentials(p.thirdpartyBrokenProxies),
+							"offline": removeCredentials(p.thirdpartyOfflineProxies),
 						},
 					},
 				}
@@ -72,10 +77,14 @@ func removeCredentials(proxyURLs []string) []string {
 	for _, proxyURL := range proxyURLs {
 		u, err := url.Parse(proxyURL)
 		if err != nil {
-			return nil
+			// Skip if invalid.
+			continue
 		}
 		u.User = nil
 		newURLs = append(newURLs, u.String())
+	}
+	if len(newURLs) == 0 {
+		newURLs = make([]string, 0)
 	}
 	return newURLs
 }

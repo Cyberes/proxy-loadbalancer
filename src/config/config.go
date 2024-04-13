@@ -18,6 +18,7 @@ type Config struct {
 	ProxyPoolThirdparty     []string
 	ThirdpartyTestUrls      []string
 	ThirdpartyBypassDomains []string
+	ShuffleProxies          bool
 }
 
 func SetConfig(configFile string) (*Config, error) {
@@ -29,11 +30,12 @@ func SetConfig(configFile string) (*Config, error) {
 	viper.SetConfigFile(configFile)
 	viper.SetDefault("http_port", "5000")
 	viper.SetDefault("proxy_checkers", 50)
-	viper.SetDefault("proxy_connect_timeout", 10)
+	viper.SetDefault("proxy_connect_timeout", 60)
 	viper.SetDefault("proxy_pool_ours", make([]string, 0))
 	viper.SetDefault("proxy_pool_thirdparty", make([]string, 0))
 	viper.SetDefault("thirdparty_test_urls", make([]string, 0))
 	viper.SetDefault("thirdparty_bypass_domains", make([]string, 0))
+	viper.SetDefault("shuffle_proxies", false)
 
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -48,6 +50,11 @@ func SetConfig(configFile string) (*Config, error) {
 		ProxyPoolThirdparty:     viper.GetStringSlice("proxy_pool_thirdparty"),
 		ThirdpartyTestUrls:      viper.GetStringSlice("thirdparty_test_urls"),
 		ThirdpartyBypassDomains: viper.GetStringSlice("thirdparty_bypass_domains"),
+		ShuffleProxies:          viper.GetBool("shuffle_proxies"),
+	}
+
+	if len(config.ProxyPoolOurs) == 0 && len(config.ProxyPoolThirdparty) == 0 {
+		return nil, errors.New("no proxies configured")
 	}
 
 	if config.IpCheckerURL == "" {

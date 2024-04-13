@@ -1,14 +1,14 @@
 # Port to run on.
-http_port:             9000
+http_port:                 9000
 
 # How many proxies will be checked at once?
-proxy_checkers:        50
+proxy_checkers:            50
 
 # URL to get a proxy's IP.
-ip_checker_url:        https://api.ipify.org
+ip_checker_url:            https://api.ipify.org
 
 # Connection timeout for the proxies in seconds.
-proxy_connect_timeout: 10
+proxy_connect_timeout:     60
 
 # Your proxies.
 proxy_pool_ours:
@@ -28,3 +28,7 @@ thirdparty_test_urls:
 # Don't route requests for these domains through the third-party proxies.
 thirdparty_bypass_domains:
   - twitter.com
+
+# Shuffle the proxy lists whenever the background thread refreshes them.
+# If false, round-robin on default order.
+shuffle_proxies:           false

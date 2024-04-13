@@ -17,10 +17,13 @@ func (p *ForwardProxyCluster) ValidateProxiesThread() {
 	ctx := context.TODO()
 
 	for {
+		p.refreshInProgress = true
 		allProxies := removeDuplicates(append(config.GetConfig().ProxyPoolOurs, config.GetConfig().ProxyPoolThirdparty...))
 		newOurOnlineProxies := make([]string, 0)
+		newOurOfflineProxies := make([]string, 0)
 		newThirdpartyOnlineProxies := make([]string, 0)
 		newThirdpartyBrokenProxies := make([]string, 0)
+		newThirdpartyOfflineProxies := make([]string, 0)
 		newIpAddresses := make([]string, 0)
 
 		var wg sync.WaitGroup
@@ -31,6 +34,11 @@ func (p *ForwardProxyCluster) ValidateProxiesThread() {
 
 				if err := sem.Acquire(ctx, 1); err != nil {
 					log.Errorf("Validate - failed to acquire semaphore: %v", err)
+					if isThirdparty(pxy) {
+						newThirdpartyOfflineProxies = append(newThirdpartyOfflineProxies, pxy)
+					} else {
+						newOurOfflineProxies = append(newOurOfflineProxies, pxy)
+					}
 					return
 				}
 				defer sem.Release(1)
@@ -38,6 +46,11 @@ func (p *ForwardProxyCluster) ValidateProxiesThread() {
 				_, _, proxyHost, _, err := splitProxyURL(pxy)
 				if err != nil {
 					log.Errorf(`Invalid proxy "%s"`, pxy)
+					if isThirdparty(pxy) {
+						newThirdpartyOfflineProxies = append(newThirdpartyOfflineProxies, pxy)
+					} else {
+						newOurOfflineProxies = append(newOurOfflineProxies, pxy)
+					}
 					return
 				}
 
@@ -45,10 +58,20 @@ func (p *ForwardProxyCluster) ValidateProxiesThread() {
 				ipAddr, testErr := sendRequestThroughProxy(pxy, config.GetConfig().IpCheckerURL)
 				if testErr != nil {
 					log.Warnf("Validate - proxy %s failed: %s", proxyHost, testErr)
+					if isThirdparty(pxy) {
+						newThirdpartyOfflineProxies = append(newThirdpartyOfflineProxies, pxy)
+					} else {
+						newOurOfflineProxies = append(newOurOfflineProxies, pxy)
+					}
 					return
 				}
 				if slices.Contains(newIpAddresses, ipAddr) {
 					log.Warnf("Validate - duplicate IP Address %s for proxy %s", ipAddr, proxyHost)
+					if isThirdparty(pxy) {
+						newThirdpartyOfflineProxies = append(newThirdpartyOfflineProxies, pxy)
+					} else {
+						newOurOfflineProxies = append(newOurOfflineProxies, pxy)
+					}
 					return
 				}
 				newIpAddresses = append(newIpAddresses, ipAddr)
@@ -73,18 +96,24 @@ func (p *ForwardProxyCluster) ValidateProxiesThread() {
 
 		p.mu.Lock()
 		p.ourOnlineProxies = removeDuplicates(newOurOnlineProxies)
+		p.ourOfflineProxies = newOurOfflineProxies
 		p.thirdpartyOnlineProxies = removeDuplicates(newThirdpartyOnlineProxies)
 		p.thirdpartyBrokenProxies = removeDuplicates(newThirdpartyBrokenProxies)
+		p.thirdpartyOfflineProxies = newThirdpartyOfflineProxies
 		p.ipAddresses = removeDuplicates(newIpAddresses)
+		p.BalancerOnline = len(slices.Concat(p.ourOnlineProxies, p.thirdpartyOnlineProxies, p.thirdpartyBrokenProxies)) > 0 // Online only if there are active and online proxies.
 		p.mu.Unlock()
 
-		if !started {
+		if config.GetConfig().ShuffleProxies {
 			p.mu.Lock()
 			p.ourOnlineProxies = shuffle(p.ourOnlineProxies)
 			p.thirdpartyOnlineProxies = shuffle(p.thirdpartyOnlineProxies)
 			p.mu.Unlock()
+		}
+
+		if !started {
 			started = true
-			p.BalancerOnline.Done()
+			p.BalancerReady.Done()
 		}
 
 		p.mu.RLock()
@@ -92,6 +121,7 @@ func (p *ForwardProxyCluster) ValidateProxiesThread() {
 			len(p.ourOnlineProxies), len(p.thirdpartyOnlineProxies), len(p.thirdpartyBrokenProxies), len(p.ourOnlineProxies)+(len(p.thirdpartyOnlineProxies)-len(p.thirdpartyBrokenProxies)))
 		p.mu.RUnlock()
 
+		p.refreshInProgress = false
 		time.Sleep(60 * time.Second)
 	}
 }

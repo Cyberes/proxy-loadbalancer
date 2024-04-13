@@ -89,7 +89,7 @@ func main() {
 	log.Infof("-> Server started on 0.0.0.0:%s <-", configData.HTTPPort)
 
 	go proxyCluster.ValidateProxiesThread()
-	proxyCluster.BalancerOnline.Wait()
+	proxyCluster.BalancerReady.Wait()
 	log.Infoln("-> Proxy server accepting requests <-")
 
 	select {}

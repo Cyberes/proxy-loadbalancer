@@ -24,7 +24,7 @@ func logProxyRequest(remoteAddr string, proxyHost string, targetHost string, ret
 }
 
 func (p *ForwardProxyCluster) validateRequestAndGetProxy(w http.ResponseWriter, req *http.Request) (string, string, string, string, *url.URL, error) {
-	if p.BalancerOnline.GetCount() != 0 {
+	if p.BalancerReady.GetCount() != 0 {
 		errStr := "proxy is not ready"
 		http.Error(w, errStr, http.StatusServiceUnavailable)
 		return "", "", "", "", nil, errors.New(errStr)

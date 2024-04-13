@@ -11,13 +11,17 @@ import (
 type ForwardProxyCluster struct {
 	mu                        sync.RWMutex
 	ourOnlineProxies          []string
+	ourOfflineProxies         []string
 	thirdpartyOnlineProxies   []string
 	thirdpartyBrokenProxies   []string
+	thirdpartyOfflineProxies  []string
 	ipAddresses               []string
-	BalancerOnline            WaitGroupCountable
+	BalancerReady             WaitGroupCountable
+	BalancerOnline            bool
 	currentProxyAll           int32
 	currentProxyOurs          int32
 	currentProxyAllWithBroken int32
+	refreshInProgress         bool
 }
 
 var log *logrus.Logger
@@ -31,7 +35,8 @@ func NewForwardProxyCluster() *ForwardProxyCluster {
 	atomic.StoreInt32(&p.currentProxyAll, 0)
 	atomic.StoreInt32(&p.currentProxyOurs, 0)
 	atomic.StoreInt32(&p.currentProxyAllWithBroken, 0)
-	p.BalancerOnline.Add(1)
+	p.BalancerReady.Add(1)
+	p.BalancerOnline = false
 	return p
 }
 

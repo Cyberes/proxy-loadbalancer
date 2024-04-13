@@ -28,10 +28,11 @@ The server displays stats and info at `/json`
 === Proxy Load Balancer ===
 Usage of ./proxy-loadbalancer:
   --config [string]
-        Path to the config file
-  --d, --debug  
-        Enable debug mode
-  --v   Print version and exit
+               Path to the config file
+  -d, --debug  
+               Enable debug mode
+  --v          Print version and exit
+  -h, --help   Print this help message
 ```
 
 ## Special Headers
