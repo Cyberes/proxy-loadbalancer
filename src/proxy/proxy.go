@@ -37,10 +37,17 @@ func NewForwardProxyCluster() *ForwardProxyCluster {
 
 func (p *ForwardProxyCluster) cycleProxy(validProxies []string, currentProxy *int32) string {
 	// Just round robin
-	currProxy := atomic.LoadInt32(currentProxy)
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	currProxy := int(atomic.LoadInt32(currentProxy))
+	if currProxy > len(validProxies)-1 {
+		// This might happen if the background thread is currently making changes to the list of proxies.
+		// Just set it to the current length of the proxies array and move on.
+		currProxy = len(validProxies) - 1
+	}
 	downstreamProxy := validProxies[currProxy]
-	newCurrentProxy := (currProxy + 1) % int32(len(validProxies))
-	atomic.StoreInt32(currentProxy, newCurrentProxy)
+	newCurrentProxy := (currProxy + 1) % len(validProxies)
+	atomic.StoreInt32(currentProxy, int32(newCurrentProxy))
 	return downstreamProxy
 }
 

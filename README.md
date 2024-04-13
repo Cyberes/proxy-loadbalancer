@@ -6,7 +6,8 @@ This is a simple proxy load balancer that will route requests to a cluster of pr
 This makes it easy to connect your clients to a large number of proxy servers without worrying about implementing
 anything special clientside.
 
-HTTPS proxy servers are not supported.
+- Downstream HTTPS proxy servers are not supported.
+- This proxy server will transparently forward HTTPS requests without terminating them, meaning a self-signed certificate is not required.
 
 ## Install
 
