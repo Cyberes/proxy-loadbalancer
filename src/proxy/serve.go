@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -34,10 +35,10 @@ func (p *ForwardProxyCluster) ServeHTTP(w http.ResponseWriter, req *http.Request
 					"online": p.BalancerOnline.GetCount() == 0,
 					"proxies": map[string]interface{}{
 						"totalOnline": len(p.ourOnlineProxies) + len(p.thirdpartyOnlineProxies),
-						"ours":        p.ourOnlineProxies,
+						"ours":        removeCredentials(p.ourOnlineProxies),
 						"thirdParty": map[string]interface{}{
-							"online": p.thirdpartyOnlineProxies,
-							"broken": p.thirdpartyBrokenProxies,
+							"online": removeCredentials(p.thirdpartyOnlineProxies),
+							"broken": removeCredentials(p.thirdpartyBrokenProxies),
 						},
 					},
 				}
@@ -61,4 +62,17 @@ func (p *ForwardProxyCluster) ServeHTTP(w http.ResponseWriter, req *http.Request
 			p.proxyHttpConnect(w, req)
 		}
 	}
+}
+
+func removeCredentials(proxyURLs []string) []string {
+	var newURLs []string
+	for _, proxyURL := range proxyURLs {
+		u, err := url.Parse(proxyURL)
+		if err != nil {
+			return nil
+		}
+		u.User = nil
+		newURLs = append(newURLs, u.String())
+	}
+	return newURLs
 }
