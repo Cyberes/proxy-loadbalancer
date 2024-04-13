@@ -2,27 +2,26 @@
 
 _A round-robin load balancer for HTTP proxies._
 
-does not support downstream https servers.
+This is a simple proxy load balancer that will route requests to a cluster of proxy backends in a round-robin fashion.
+This makes it easy to connect your clients to a large number of proxy servers without worrying about implementing
+anything special clientside.
 
-This is a simple load balancer using [proxy.py](https://github.com/abhinavsingh/proxy.py) that will route requests to a
-cluster of proxy backends in a round-robin fashion. This makes it easy to connect your clients to a large number of
-proxy
-servers without worrying about implementing anything special clientside.
+HTTPS proxy servers are not supported.
 
 ## Install
 
-1. `pip install -r requirements.txt`
-2. Copy `proxy-skeleton/app/config.py.example` to `proxy-skeleton/app/config.py` and fill in your config details.
-3. Deploy the `canihazip` https://git.evulid.cc/cyberes/canihazip and start it.
+1.  Download the latest release from [/releases](https://git.evulid.cc/cyberes/proxy-loadbalancer/releases) or run `./build.sh` to build the program locally.
+2.  `cp config.example.yml config.yml`
+3.  Edit the config.
+4.  Start the loadbalancer with `./proxy-loadbalancer --config [path to your config.yml]`
 
-## Use
+You can run your own "public IP delivery server" `canihazip` <https://git.evulid.cc/cyberes/canihazip> or use the default `api.ipify.org`
 
-To start the load balancer server, navigate to `./proxy-skeleton` and run `python3 -m app`. The systemd service
-`loadbalancer.service` is provided as a service example.
+An example systemd service `loadbalancer.service` is provided.
 
 ## Special Headers
 
 The load balancer accepts special headers to control its behavior.
 
-- `Smartproxy-Bypass`: don't use any SmartProxy endpoints.
-- `Smartproxy-Disable-BV3HI`: don't filter SmartProxy endpoints by the 503 connect error.
+-   `Thirdparty-Bypass`: don't use any third-party endpoints for this request.
+-   `Thirdparty-Include-Broken`: use all online endpoints for this request, including third-party ones that failed the special test.

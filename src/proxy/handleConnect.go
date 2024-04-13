@@ -13,6 +13,11 @@ import (
 	"slices"
 )
 
+var (
+	HeaderThirdpartyIncludeBroken = "Thirdparty-Include-Broken"
+	HeaderThirdpartyBypass        = "Thirdparty-Bypass"
+)
+
 func (p *ForwardProxyCluster) validateRequestAndGetProxy(w http.ResponseWriter, req *http.Request) (string, string, string, string, *url.URL, error) {
 	if p.BalancerOnline.GetCount() != 0 {
 		errStr := "balancer is not ready"
@@ -29,10 +34,10 @@ func (p *ForwardProxyCluster) validateRequestAndGetProxy(w http.ResponseWriter, 
 		return "", "", "", "", nil, errors.New(errStr)
 	}
 
-	headerIncludeBrokenThirdparty := req.Header.Get("Thirdparty-Include-Broken")
-	req.Header.Del("Thirdparty-Include-Broken")
-	headerBypassThirdparty := req.Header.Get("Thirdparty-Bypass")
-	req.Header.Del("Thirdparty-Bypass")
+	headerIncludeBrokenThirdparty := req.Header.Get(HeaderThirdpartyIncludeBroken)
+	req.Header.Del(HeaderThirdpartyIncludeBroken)
+	headerBypassThirdparty := req.Header.Get(HeaderThirdpartyBypass)
+	req.Header.Del(HeaderThirdpartyBypass)
 	if headerBypassThirdparty != "" && headerIncludeBrokenThirdparty != "" {
 		errStr := "duplicate options headers detected, rejecting request"
 		http.Error(w, errStr, http.StatusBadRequest)

@@ -1,13 +1,12 @@
 [Unit]
-Description=Proxy Load Distributor
+Description=Proxy Load Balancer
 After=network.target
 
 [Service]
 SyslogIdentifier=proxy-loadbalancer
 User=loadbalancer
 Group=loadbalancer
-WorkingDirectory=/srv/loadbalancer/proxy-loadbalancer/proxy-skeleton
-ExecStart=/srv/loadbalancer/proxy-loadbalancer/venv/bin/python -m app
+ExecStart=/srv/loadbalancer/proxy-loadbalancer --config /etc/proxy-loadbalancer/config.yml
 Restart=always
 
 [Install]
