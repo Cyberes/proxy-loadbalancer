@@ -2,28 +2,95 @@ package proxy
 
 import (
 	"bufio"
+	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
-	"log"
+	"main/config"
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
-	"sync/atomic"
+	"slices"
 )
 
-func (p *ForwardProxyCluster) proxyHttpConnect(w http.ResponseWriter, req *http.Request) {
-	proxyURLParsed, _ := url.Parse(p.getProxy())
-	proxyURLParsed.Scheme = "http"
+func (p *ForwardProxyCluster) validateRequestAndGetProxy(w http.ResponseWriter, req *http.Request) (string, string, string, string, *url.URL, error) {
+	if p.BalancerOnline.GetCount() != 0 {
+		errStr := "balancer is not ready"
+		http.Error(w, errStr, http.StatusServiceUnavailable)
+		return "", "", "", "", nil, errors.New(errStr)
+	}
 
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	if len(p.ourOnlineProxies) == 0 && len(p.thirdpartyOnlineProxies) == 0 {
+		errStr := "no valid backends"
+		http.Error(w, errStr, http.StatusServiceUnavailable)
+		return "", "", "", "", nil, errors.New(errStr)
+	}
+
+	headerIncludeBrokenThirdparty := req.Header.Get("Thirdparty-Include-Broken")
+	req.Header.Del("Thirdparty-Include-Broken")
+	headerBypassThirdparty := req.Header.Get("Thirdparty-Bypass")
+	req.Header.Del("Thirdparty-Bypass")
+	if headerBypassThirdparty != "" && headerIncludeBrokenThirdparty != "" {
+		errStr := "duplicate options headers detected, rejecting request"
+		http.Error(w, errStr, http.StatusBadRequest)
+		return "", "", "", "", nil, errors.New(errStr)
+	}
+
+	var selectedProxy string
+	if slices.Contains(config.GetConfig().ThirdpartyBypassDomains, req.URL.Hostname()) {
+		selectedProxy = p.getProxyFromOurs()
+	} else {
+		if headerIncludeBrokenThirdparty != "" {
+			selectedProxy = p.getProxyFromAllWithBroken()
+		} else if headerBypassThirdparty != "" {
+			selectedProxy = p.getProxyFromOurs()
+		} else {
+			selectedProxy = p.getProxyFromAll()
+		}
+	}
+	if selectedProxy == "" {
+		panic("selected proxy was empty!")
+	}
+
+	proxyUser, proxyPass, proxyHost, parsedProxyUrl, err := splitProxyURL(selectedProxy)
+	if err != nil {
+		errStr := "failed to parse downstream proxy assignment"
+		http.Error(w, errStr, http.StatusBadRequest)
+		return "", "", "", "", nil, errors.New(fmt.Sprintf(`%s: %s`, errStr, err.Error()))
+	}
+
+	return selectedProxy, proxyUser, proxyPass, proxyHost, parsedProxyUrl, nil
+
+}
+
+func (p *ForwardProxyCluster) proxyHttpConnect(w http.ResponseWriter, req *http.Request) {
+	_, proxyUser, proxyPass, proxyHost, parsedProxyUrl, err := p.validateRequestAndGetProxy(w, req)
+	if err != nil {
+		// Error has already been handled, just log and return.
+		log.Errorf(`Failed to validate and get proxy: "%s"`, err)
+		return
+	}
+	remoteAddr, _, _ := net.SplitHostPort(req.RemoteAddr)
+	defer log.Debugf(`%s -> %s -> %s -- HTTP`, remoteAddr, proxyHost, req.Host)
+
+	parsedProxyUrl.Scheme = "http"
+	if proxyUser != "" && proxyPass != "" {
+		parsedProxyUrl.User = url.UserPassword(proxyUser, proxyPass)
+	}
 	client := &http.Client{
 		Transport: &http.Transport{
-			Proxy: http.ProxyURL(proxyURLParsed),
+			Proxy: http.ProxyURL(parsedProxyUrl),
 		},
+		Timeout: config.GetConfig().ProxyConnectTimeout,
 	}
+
 	proxyReq, err := http.NewRequest(req.Method, req.URL.String(), req.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Errorf(`Failed to make %s request to "%s": "%s"`, req.Method, req.URL.String(), err)
+		http.Error(w, "failed to make request to downstream", http.StatusInternalServerError)
 		return
 	}
 
@@ -32,7 +99,8 @@ func (p *ForwardProxyCluster) proxyHttpConnect(w http.ResponseWriter, req *http.
 
 	resp, err := client.Do(proxyReq)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		log.Errorf(`Failed to execute %s request to "%s": "%s"`, req.Method, req.URL.String(), err)
+		http.Error(w, "failed to execute request to downstream", http.StatusServiceUnavailable)
 		return
 	}
 	defer resp.Body.Close()
@@ -42,49 +110,72 @@ func (p *ForwardProxyCluster) proxyHttpConnect(w http.ResponseWriter, req *http.
 	io.Copy(w, resp.Body)
 }
 
-func (p *ForwardProxyCluster) proxyHTTPSConnect(w http.ResponseWriter, req *http.Request) {
-	log.Printf("CONNECT requested to %v (from %v)", req.Host, req.RemoteAddr)
-
-	allValidProxies := append(p.ourOnlineProxies, p.smartproxyOnlineProxies...)
-	currentProxy := atomic.LoadInt32(&p.CurrentProxy)
-	downstreamProxy := allValidProxies[currentProxy]
-	downstreamProxy = strings.Replace(downstreamProxy, "http://", "", -1)
-	downstreamProxy = strings.Replace(downstreamProxy, "https://", "", -1)
-	newCurrentProxy := (currentProxy + 1) % int32(len(testProxies))
-	atomic.StoreInt32(&p.CurrentProxy, newCurrentProxy)
+func (p *ForwardProxyCluster) proxyHttpsConnect(w http.ResponseWriter, req *http.Request) {
+	_, proxyUser, proxyPass, proxyHost, _, err := p.validateRequestAndGetProxy(w, req)
+	if err != nil {
+		// Error has already been handled, just log and return.
+		log.Errorf(`Failed to validate and get proxy: "%s"`, err)
+		return
+	}
+	remoteAddr, _, _ := net.SplitHostPort(req.RemoteAddr)
+	targetHost, _, _ := net.SplitHostPort(req.Host)
+	defer log.Debugf(`%s -> %s -> %s -- CONNECT`, remoteAddr, proxyHost, targetHost)
 
 	// Connect to the downstream proxy server instead of the target host
-	proxyConn, err := net.Dial("tcp", downstreamProxy)
+	proxyConn, err := net.DialTimeout("tcp", proxyHost, config.GetConfig().ProxyConnectTimeout)
 	if err != nil {
-		log.Println("failed to dial to proxy", downstreamProxy, err)
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		log.Errorf(`Failed to dial proxy %s - %s`, proxyHost, err)
+		http.Error(w, "failed to make request to downstream", http.StatusServiceUnavailable)
 		return
 	}
 
+	// Proxy authentication
+	auth := fmt.Sprintf("%s:%s", proxyUser, proxyPass)
+	encodedAuth := base64.StdEncoding.EncodeToString([]byte(auth))
+	authHeader := "Proxy-Authorization: Basic " + encodedAuth
+
 	// Send a new CONNECT request to the downstream proxy
-	_, err = fmt.Fprintf(proxyConn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", req.Host, req.Host)
+	_, err = fmt.Fprintf(proxyConn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n%s\r\n\r\n", req.Host, req.Host, authHeader)
 	if err != nil {
 		return
 	}
 	resp, err := http.ReadResponse(bufio.NewReader(proxyConn), req)
 	if err != nil || resp.StatusCode != 200 {
-		log.Println("failed to CONNECT to target", req.Host)
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		var errStr string
+		if err != nil {
+			// `err` may be nil
+			errStr = err.Error()
+		}
+		statusCode := -1
+		if resp != nil {
+			statusCode = resp.StatusCode
+		}
+		log.Errorf(`Failed to CONNECT to %s using proxy %s. Status code : %d - "%s"`, req.Host, proxyHost, statusCode, errStr)
+
+		// Return the original status code.
+		returnStatusCode := http.StatusServiceUnavailable
+		if statusCode != -1 {
+			returnStatusCode = statusCode
+		}
+		http.Error(w, "failed to execute request to downstream", returnStatusCode)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 	hj, ok := w.(http.Hijacker)
 	if !ok {
-		log.Fatal("http server doesn't support hijacking connection")
+		log.Errorf(`Failed to forward connection to %s using proxy %s`, req.Host, proxyHost)
+		http.Error(w, "failed to forward connection to downstream", http.StatusServiceUnavailable)
+		return
 	}
 
 	clientConn, _, err := hj.Hijack()
 	if err != nil {
-		log.Fatal("http hijacking failed")
+		log.Errorf(`Failed to execute connection forwarding to %s using proxy %s`, req.Host, proxyHost)
+		http.Error(w, "failed to execute connection forwarding to downstream", http.StatusServiceUnavailable)
+		return
 	}
 
-	log.Println("tunnel established")
 	go tunnelConn(proxyConn, clientConn)
 	go tunnelConn(clientConn, proxyConn)
 }

@@ -6,10 +6,10 @@ import (
 	"strings"
 )
 
-func ValidateProxies(proxies []string) error {
+func validateProxies(proxies []string) error {
 	for _, proxy := range proxies {
-		if !strings.HasPrefix("http://", proxy) {
-			return errors.New(fmt.Sprintf(`proxy "%s" must start with http://`, proxy))
+		if !strings.HasPrefix(proxy, "http://") {
+			return errors.New(fmt.Sprintf(`Proxy URLs must start with "http://" - "%s"`, proxy))
 		}
 	}
 	return nil

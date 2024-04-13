@@ -3,27 +3,26 @@ package proxy
 import (
 	"fmt"
 	"io"
+	"main/config"
 	"net/http"
 	"net/url"
-	"time"
 )
 
-func sendRequestThroughProxy(proxyUrl string, targetURL string) (string, error) {
-	parsedProxyUrl, err := url.Parse(proxyUrl)
+func sendRequestThroughProxy(pxy string, targetURL string) (string, error) {
+	proxyUser, proxyPass, _, parsedProxyUrl, err := splitProxyURL(pxy)
 	if err != nil {
 		return "", err
 	}
 
-	if IsSmartproxy(proxyUrl) {
-		// Set the username and password for proxy authentication if Smartproxy
-		parsedProxyUrl.User = url.UserPassword(smartproxyUsername, smartproxyPassword)
+	if proxyUser != "" && proxyPass != "" {
+		parsedProxyUrl.User = url.UserPassword(proxyUser, proxyPass)
 	}
 	transport := &http.Transport{
 		Proxy: http.ProxyURL(parsedProxyUrl),
 	}
 	client := &http.Client{
 		Transport: transport,
-		Timeout:   time.Second * 10,
+		Timeout:   config.GetConfig().ProxyConnectTimeout,
 	}
 
 	response, err := client.Get(targetURL)

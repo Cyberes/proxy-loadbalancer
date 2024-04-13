@@ -3,6 +3,8 @@ config.py
 
 dist/
 test.go
+config.yml
+config.yaml
 
 # ---> Python
 # Byte-compiled / optimized / DLL files

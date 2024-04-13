@@ -2,9 +2,8 @@ package proxy
 
 import (
 	"context"
-	"fmt"
 	"golang.org/x/sync/semaphore"
-	"log"
+	"main/config"
 	"math/rand"
 	"slices"
 	"sync"
@@ -12,19 +11,17 @@ import (
 )
 
 func (p *ForwardProxyCluster) ValidateProxiesThread() {
-	log.Println("Doing initial backend check, please wait...")
+	log.Infoln("Doing initial backend check, please wait...")
 	started := false
-
-	// TODO: config value
-	var sem = semaphore.NewWeighted(int64(50))
+	var sem = semaphore.NewWeighted(int64(config.GetConfig().MaxProxyCheckers))
 	ctx := context.TODO()
 
 	for {
 		// TODO: need to have these be temp vars and then copy them over when finished
-		allProxies := removeDuplicates(append(testProxies, testSmartproxyPool...))
+		allProxies := removeDuplicates(append(config.GetConfig().ProxyPoolOurs, config.GetConfig().ProxyPoolThirdparty...))
 		p.ourOnlineProxies = make([]string, 0)
-		p.smartproxyOnlineProxies = make([]string, 0)
-		p.smartproxyBrokenProxies = make([]string, 0)
+		p.thirdpartyOnlineProxies = make([]string, 0)
+		p.thirdpartyBrokenProxies = make([]string, 0)
 		p.ipAddresses = make([]string, 0)
 
 		var wg sync.WaitGroup
@@ -35,60 +32,67 @@ func (p *ForwardProxyCluster) ValidateProxiesThread() {
 				defer wg.Done()
 
 				if err := sem.Acquire(ctx, 1); err != nil {
-					fmt.Printf("Failed to acquire semaphore: %v\n", err)
+					log.Errorf("Validate - failed to acquire semaphore: %v\n", err)
 					return
 				}
 				defer sem.Release(1)
 
+				_, _, proxyHost, _, err := splitProxyURL(pxy)
+				if err != nil {
+					log.Errorf(`Invalid proxy "%s"`, pxy)
+					return
+				}
+
 				// Test the proxy.
-				ipAddr, testErr := sendRequestThroughProxy(pxy, testTargetUrl)
+				ipAddr, testErr := sendRequestThroughProxy(pxy, config.GetConfig().IpCheckerURL)
 				if testErr != nil {
-					fmt.Printf("Proxy %s failed: %s\n", pxy, testErr)
+					log.Warnf("Validate - proxy %s failed: %s", proxyHost, testErr)
 					return
 				}
 				if slices.Contains(p.ipAddresses, ipAddr) {
-					fmt.Printf("Duplicate IP Address %s for proxy %s\n", ipAddr, pxy)
+					log.Warnf("Validate - duplicate IP Address %s for proxy %s", ipAddr, proxyHost)
 					return
 				}
 				p.ipAddresses = append(p.ipAddresses, ipAddr)
 
 				// Sort the proxy into the right groups.
-				if IsSmartproxy(pxy) {
-					p.smartproxyOnlineProxies = append(p.smartproxyOnlineProxies, pxy)
-					for _, d := range testSmartproxyBV3HIFix {
+				if isThirdparty(pxy) {
+					p.mu.Lock()
+					p.thirdpartyOnlineProxies = append(p.thirdpartyOnlineProxies, pxy)
+					p.mu.Unlock()
+
+					for _, d := range config.GetConfig().ThirdpartyTestUrls {
 						_, bv3hiErr := sendRequestThroughProxy(pxy, d)
 						if bv3hiErr != nil {
-							fmt.Printf("Smartproxy %s failed: %s\n", pxy, bv3hiErr)
-							p.smartproxyBrokenProxies = append(p.smartproxyBrokenProxies, pxy)
+							log.Debugf("Validate - Third-party %s failed: %s\n", proxyHost, bv3hiErr)
+							p.thirdpartyBrokenProxies = append(p.thirdpartyBrokenProxies, pxy)
 						}
 					}
 				} else {
+					p.mu.Lock()
 					p.ourOnlineProxies = append(p.ourOnlineProxies, pxy)
+					p.mu.Unlock()
 				}
 			}(pxy)
 		}
 		wg.Wait()
 
 		if !started {
+			p.mu.Lock()
 			p.ourOnlineProxies = shuffle(p.ourOnlineProxies)
-			p.smartproxyOnlineProxies = shuffle(p.smartproxyOnlineProxies)
+			p.thirdpartyOnlineProxies = shuffle(p.thirdpartyOnlineProxies)
+			p.mu.Unlock()
 			started = true
 			p.BalancerOnline.Done()
 		}
 
-		log.Printf("Our Endpoints Online: %d, Smartproxy Endpoints Online: %d, Smartproxy Broken Backends: %d, Total Online: %d\n",
-			len(p.ourOnlineProxies), len(p.smartproxyOnlineProxies), len(p.smartproxyBrokenProxies), len(p.ourOnlineProxies)+(len(p.smartproxyOnlineProxies)-len(p.smartproxyBrokenProxies)))
+		p.mu.RLock()
+		log.Infof("Our Endpoints Online: %d, Third-Party Endpoints Online: %d, Third-Party Broken Endpoints: %d, Total Valid: %d\n",
+			len(p.ourOnlineProxies), len(p.thirdpartyOnlineProxies), len(p.thirdpartyBrokenProxies), len(p.ourOnlineProxies)+(len(p.thirdpartyOnlineProxies)-len(p.thirdpartyBrokenProxies)))
+		p.mu.RUnlock()
 
 		time.Sleep(60 * time.Second)
 	}
-}
-
-func getKeysFromMap(m map[string]string) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
 }
 
 func shuffle(vals []string) []string {

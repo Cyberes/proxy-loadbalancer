@@ -1,35 +1,67 @@
 package proxy
 
 import (
+	"github.com/sirupsen/logrus"
+	"main/logging"
+	"slices"
 	"sync"
 	"sync/atomic"
 )
 
 type ForwardProxyCluster struct {
-	// TODO: mutex rwlock
-	ourOnlineProxies        []string
-	smartproxyOnlineProxies []string
-	smartproxyBrokenProxies []string
-	ipAddresses             []string
-	BalancerOnline          sync.WaitGroup
-	CurrentProxy            int32
+	mu                        sync.RWMutex
+	ourOnlineProxies          []string
+	thirdpartyOnlineProxies   []string
+	thirdpartyBrokenProxies   []string
+	ipAddresses               []string
+	BalancerOnline            WaitGroupCountable
+	currentProxyAll           int32
+	currentProxyOurs          int32
+	currentProxyAllWithBroken int32
 }
 
-// TODO: move all smartproxy things to "thirdparty"
+var log *logrus.Logger
+
+func init() {
+	log = logging.GetLogger()
+}
 
 func NewForwardProxyCluster() *ForwardProxyCluster {
 	p := &ForwardProxyCluster{}
-	atomic.StoreInt32(&p.CurrentProxy, 0)
+	atomic.StoreInt32(&p.currentProxyAll, 0)
+	atomic.StoreInt32(&p.currentProxyOurs, 0)
+	atomic.StoreInt32(&p.currentProxyAllWithBroken, 0)
 	p.BalancerOnline.Add(1)
 	return p
 }
 
-func (p *ForwardProxyCluster) getProxy() string {
+func (p *ForwardProxyCluster) cycleProxy(validProxies []string, currentProxy *int32) string {
 	// Just round robin
-	allValidProxies := append(p.ourOnlineProxies, p.smartproxyOnlineProxies...)
-	currentProxy := atomic.LoadInt32(&p.CurrentProxy)
-	downstreamProxy := allValidProxies[currentProxy]
-	newCurrentProxy := (currentProxy + 1) % int32(len(testProxies))
-	atomic.StoreInt32(&p.CurrentProxy, newCurrentProxy)
+	currProxy := atomic.LoadInt32(currentProxy)
+	downstreamProxy := validProxies[currProxy]
+	newCurrentProxy := (currProxy + 1) % int32(len(validProxies))
+	atomic.StoreInt32(currentProxy, newCurrentProxy)
 	return downstreamProxy
+}
+
+func (p *ForwardProxyCluster) getProxyFromAll() string {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	validProxies := removeDuplicates(append(p.ourOnlineProxies, p.thirdpartyOnlineProxies...))
+	return p.cycleProxy(validProxies, &p.currentProxyAll)
+}
+
+func (p *ForwardProxyCluster) getProxyFromOurs() string {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	validProxies := p.ourOnlineProxies
+	return p.cycleProxy(validProxies, &p.currentProxyOurs)
+}
+
+func (p *ForwardProxyCluster) getProxyFromAllWithBroken() string {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	validProxies := removeDuplicates(slices.Concat(p.ourOnlineProxies, p.thirdpartyBrokenProxies, p.thirdpartyOnlineProxies))
+	return p.cycleProxy(validProxies, &p.currentProxyAllWithBroken)
+
 }

@@ -1,0 +1,30 @@
+# Port to run on.
+http_port:             9000
+
+# How many proxies will be checked at once?
+proxy_checkers:        50
+
+# URL to get a proxy's IP.
+ip_checker_url:        https://api.ipify.org
+
+# Connection timeout for the proxies in seconds.
+proxy_connect_timeout: 10
+
+# Your proxies.
+proxy_pool_ours:
+  - http://1.2.3.4:3128
+  - http://5.6.7.8:3128
+
+# Your third-party proxies.
+proxy_pool_thirdparty:
+  - http://username:password@example:10001
+
+# URL used to test third-party proxies against.
+# Some proxies just don't work on some domains. If a proxy fails this check it will be marked as
+# "unhealthy" and removed from the general pool.
+thirdparty_test_urls:
+  - https://files.catbox.moe/1hvrlj.png
+
+# Don't route requests for these domains through the third-party proxies.
+thirdparty_bypass_domains:
+  - twitter.com

@@ -3,10 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
+	"github.com/sirupsen/logrus"
+	"main/config"
+	"main/logging"
 	"main/proxy"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 )
 
@@ -48,13 +51,44 @@ func main() {
 		os.Exit(0)
 	}
 
+	if cliArgs.debug {
+		logging.InitLogger(logrus.DebugLevel)
+	} else {
+		logging.InitLogger(logrus.InfoLevel)
+	}
+	log := logging.GetLogger()
+	log.Debugln("Initializing...")
+
+	if cliArgs.configFile == "" {
+		exePath, err := os.Executable()
+		if err != nil {
+			panic(err)
+		}
+		exeDir := filepath.Dir(exePath)
+
+		if _, err := os.Stat(filepath.Join(exeDir, "config.yml")); err == nil {
+			if _, err := os.Stat(filepath.Join(exeDir, "config.yaml")); err == nil {
+				log.Fatalln("Both config.yml and config.yaml exist in the executable directory. Please specify one with the --config flag.")
+			}
+			cliArgs.configFile = filepath.Join(exeDir, "config.yml")
+		} else if _, err := os.Stat(filepath.Join(exeDir, "config.yaml")); err == nil {
+			cliArgs.configFile = filepath.Join(exeDir, "config.yaml")
+		} else {
+			log.Fatalln("No config file found in the executable directory. Please provide one with the --config flag.")
+		}
+	}
+	configData, err := config.SetConfig(cliArgs.configFile)
+	if err != nil {
+		log.Fatalf(`Failed to load config: %s`, err)
+	}
+
 	proxyCluster := proxy.NewForwardProxyCluster()
 	go proxyCluster.ValidateProxiesThread()
 	proxyCluster.BalancerOnline.Wait()
 	go func() {
-		log.Fatal(http.ListenAndServe(":5000", proxyCluster))
+		log.Fatal(http.ListenAndServe(":"+configData.HTTPPort, proxyCluster))
 	}()
-	fmt.Println("Server started!")
+	log.Infof("-> Server started on 0.0.0.0:%s and accepting requests <-", configData.HTTPPort)
 	select {}
 }
 

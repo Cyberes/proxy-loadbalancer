@@ -9,10 +9,10 @@ else
 fi
 
 mkdir -p "$SCRIPT_DIR/dist"
-rm "$SCRIPT_DIR"/dist/crazyfs-* &> /dev/null
+rm "$SCRIPT_DIR"/dist/* &> /dev/null
 
 BUILDARGS="$(uname)-$(uname -p)"
-OUTPUTFILE="$SCRIPT_DIR/dist/crazyfs-$VERSION-$BUILDARGS"
+OUTPUTFILE="$SCRIPT_DIR/dist/proxy-loadbalancer-$VERSION-$BUILDARGS"
 
 cd "$SCRIPT_DIR/src" || exit 1
 go mod tidy
