@@ -72,13 +72,13 @@ func (p *ForwardProxyCluster) validateRequestAndGetProxy(w http.ResponseWriter, 
 }
 
 func (p *ForwardProxyCluster) proxyHttpConnect(w http.ResponseWriter, req *http.Request) {
+	remoteAddr, _, _ := net.SplitHostPort(req.RemoteAddr)
 	_, proxyUser, proxyPass, proxyHost, parsedProxyUrl, err := p.validateRequestAndGetProxy(w, req)
 	if err != nil {
 		// Error has already been handled, just log and return.
-		log.Errorf(`Failed to validate and get proxy: "%s"`, err)
+		log.Debugf(`%s -> %s -- HTTP -- Rejecting request: "%s"`, remoteAddr, proxyHost, err)
 		return
 	}
-	remoteAddr, _, _ := net.SplitHostPort(req.RemoteAddr)
 	defer log.Debugf(`%s -> %s -> %s -- HTTP`, remoteAddr, proxyHost, req.Host)
 
 	parsedProxyUrl.Scheme = "http"
@@ -116,14 +116,14 @@ func (p *ForwardProxyCluster) proxyHttpConnect(w http.ResponseWriter, req *http.
 }
 
 func (p *ForwardProxyCluster) proxyHttpsConnect(w http.ResponseWriter, req *http.Request) {
+	remoteAddr, _, _ := net.SplitHostPort(req.RemoteAddr)
+	targetHost, _, _ := net.SplitHostPort(req.Host)
 	_, proxyUser, proxyPass, proxyHost, _, err := p.validateRequestAndGetProxy(w, req)
 	if err != nil {
 		// Error has already been handled, just log and return.
-		log.Errorf(`Failed to validate and get proxy: "%s"`, err)
+		log.Debugf(`%s -> %s -- CONNECT -- Rejecting request: "%s"`, remoteAddr, proxyHost, err)
 		return
 	}
-	remoteAddr, _, _ := net.SplitHostPort(req.RemoteAddr)
-	targetHost, _, _ := net.SplitHostPort(req.Host)
 	defer log.Debugf(`%s -> %s -> %s -- CONNECT`, remoteAddr, proxyHost, targetHost)
 
 	// Connect to the downstream proxy server instead of the target host
