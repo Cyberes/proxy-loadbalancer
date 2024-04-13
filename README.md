@@ -24,6 +24,16 @@ An example systemd service `loadbalancer.service` is provided.
 
 The server displays stats and info at `/json`
 
+```
+=== Proxy Load Balancer ===
+Usage of ./proxy-loadbalancer:
+  --config [string]
+        Path to the config file
+  --d, --debug  
+        Enable debug mode
+  --v   Print version and exit
+```
+
 ## Special Headers
 
 The load balancer accepts special headers to control its behavior.

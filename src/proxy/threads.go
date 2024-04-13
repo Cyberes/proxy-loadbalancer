@@ -116,12 +116,9 @@ func removeDuplicates(elements []string) []string {
 		if encountered[elements[v]] == true {
 			// Do not add duplicate.
 		} else {
-			// Record this element as an encountered element.
 			encountered[elements[v]] = true
-			// Append to result slice.
 			result = append(result, elements[v])
 		}
 	}
-	// Return the new slice.
 	return result
 }
