@@ -2,12 +2,9 @@
 
 _A round-robin load balancer for HTTP proxies._
 
-This is a simple proxy load balancer that will route requests to a cluster of proxy backends in a round-robin fashion.
-This makes it easy to connect your clients to a large number of proxy servers without worrying about implementing
-anything special clientside.
+This is a simple proxy load balancer that will route requests to a cluster of proxy backends in a round-robin fashion. This makes it easy to connect your clients to a large number of proxy servers without worrying about implementing anything special clientside.
 
-- Downstream HTTPS proxy servers are not supported.
-- This proxy server will transparently forward HTTPS requests without terminating them, meaning a self-signed certificate is not required.
+This proxy server will transparently forward HTTPS requests without terminating them, meaning a self-signed certificate is not required. Downstream HTTPS proxy servers are not supported.
 
 ## Install
 
@@ -22,7 +19,7 @@ You can run your own "public IP delivery server" `canihazip` <https://git.evulid
 
 An example systemd service `loadbalancer.service` is provided.
 
-The server displays stats and info at `/json`
+The server displays health, stats, info at `/json`.
 
 ```
 === Proxy Load Balancer ===
@@ -37,7 +34,7 @@ Usage of ./proxy-loadbalancer:
 
 ## Special Headers
 
-The load balancer accepts special headers to control its behavior.
+The load balancer accepts special headers to control its behavior:
 
 -   `Thirdparty-Bypass`: don't use any third-party endpoints for this request.
 -   `Thirdparty-Include-Broken`: use all online endpoints for this request, including third-party ones that failed the special test.
